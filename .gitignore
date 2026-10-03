@@ -1,0 +1,6 @@
+.DS_Store
+.env
+.env.*
+.sf/
+.sfdx/
+__pycache__/
