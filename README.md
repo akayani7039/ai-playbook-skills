@@ -7,6 +7,7 @@ Custom skills for the Salesforce AI development playbook.
 - [jira-story-setup](skills/jira-story-setup/SKILL.md)
 - [story-setup](skills/story-setup/SKILL.md)
 - [architecture-brief](skills/architecture-brief/SKILL.md)
+- [architecture-approve](skills/architecture-approve/SKILL.md)
 - [story-build](skills/story-build/SKILL.md)
 - [sf-code-review](skills/sf-code-review/SKILL.md)
 - [ui-test-playwright](skills/ui-test-playwright/SKILL.md)
