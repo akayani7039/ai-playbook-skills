@@ -10,18 +10,19 @@ Stage 07 — Production change (steps 42-50).
 ## Tools
 - Salesforce CLI (`sf project deploy validate`, `sf project deploy quick`)
 - Git MCP, Slack MCP, Jira MCP
+- Slack channel: `#br-014-release` (C0C97HAD3S4). Post every Slack message there.
 - `ui-test-playwright` (prod-smoke mode)
 - Official skill: `platform-metadata-deploy`
 
 ## Steps
 42. **Validate production** — Check-only deploy with tests against prod. Save the validation ID.
 43. **Generate runbook + rollback plan** — Deploy steps and how to roll back.
-44. **Send approver brief** — Test results, UAT sign-off, runbook and rollback plan.
+44. **Send approver brief** — Test results, UAT sign-off, runbook and rollback plan, posted to `#br-014-release`.
 45. **Authorize production** — HUMAN GATE. Stop and wait for the change approver.
 46. **Quick deploy** — Tech lead runs the quick deploy using the validation ID. Tests are not re-run.
 47. **Run production smoke test** — `ui-test-playwright` prod-smoke.
 48. **Merge + tag** — Merge the release branch into `main`. Tag `prod-<yyyy.mm>`.
-49. **Publish + announce** — Publish release notes. Tell stakeholders it's live.
+49. **Publish + announce** — Publish release notes. Tell stakeholders in `#br-014-release` it's live.
 50. **Close tickets** — Move every story in the release to **Done**.
 
 ## Rules
