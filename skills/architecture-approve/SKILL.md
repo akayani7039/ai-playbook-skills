@@ -9,7 +9,7 @@ Stage 02 gate — Architect approval (step 11). No code is written in this stage
 
 ## Tools
 - `AskUserQuestion` for every decision. Give options. Put the recommended one first.
-- Jira MCP (optional comment, only if the architect asks)
+- Jira MCP (optional comment, only if the architect asks). The status stays **In Progress** for every decision.
 
 ## Before you start
 - Find the story. Use the argument (e.g. `BR014-S2`) or the current branch `feature/BR014-S<n>`.

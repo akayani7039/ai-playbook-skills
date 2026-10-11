@@ -25,6 +25,7 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 ## Pick the part
 - No open PR for `feature/BR014-S<n>` → Part A.
 - PR open and CI green, tech lead approved, story **QA Accepted** in Jira → Part B.
+- PR merged, story deployed to QA, Jira not yet **In QA** → QA handoff (below).
 - Anything else → report where the story is and stop.
 
 ## Part A — Open the PR (steps 20-27)
@@ -58,6 +59,13 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 
 Then hand off to `sf-code-review` (step 28) and the tech lead (step 29, HUMAN GATE).
 
+## QA handoff (steps 30-31)
+When the `QA deployment` workflow is green on a `develop` commit that contains the story:
+- Move the story to **In QA**.
+- Add a Jira comment: the commit, the QA deployment run, the smoke result, and the org (`playbook-qa`).
+- Post the same to `#br-014-release`, and ask the QA lead to test.
+The QA lead then moves it to **QA Accepted** (gate 3), or logs a Bug and moves it back to **In Progress**.
+
 ## Part B — After QA acceptance (steps 33-34)
 
 ### Check the gates. All must pass, or stop and say which one failed.
@@ -66,7 +74,7 @@ Then hand off to `sf-code-review` (step 28) and the tech lead (step 29, HUMAN GA
 3. **Gate 3, QA lead** — The Jira story is in **QA Accepted**. Read the changelog (`listJiraIssueChangelogs`): the move to QA Accepted must be made by the QA lead, not the developer or the agent. If it isn't, stop.
 
 ### Steps
-33. **Merge to develop** — `gh pr merge <n> --merge`. Keep the branch; the worktree uses it. The push starts the `QA deployment` workflow. Wait for it and report the result.
+33. **Merge to develop** — `gh pr merge <n> --merge`. Keep the branch; the worktree uses it. The push starts the `QA deployment` workflow. Wait for it and report the result. If the story wasn't in QA yet, run the QA handoff.
 34. **Update Jira + Slack** — Move the story to **Ready for Release**. Add a Jira comment: merge commit, QA deployment run and result. Post the same to `#br-014-release`.
 
 ### If the PR is already merged
@@ -81,4 +89,3 @@ Don't merge again. Report who merged it and when, and whether gates 2 and 3 were
 ## TODO
 - [ ] QA order: the `QA deployment` workflow deploys `develop`, so a story reaches QA only after step 33. Decide: merge first then QA, or add a pre-merge QA deploy of the PR branch.
 - [ ] QA lead Jira account, so gate 3 can be checked by name.
-- [ ] Who moves the story to **In QA** (QA deploy workflow, or this skill after step 33).

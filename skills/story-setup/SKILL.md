@@ -29,6 +29,13 @@ Stage 01 — Pick up & prepare (steps 1-3).
 - Set it as that folder's default org (`sf config set target-org <alias>`).
 - Stop so I can check the structure in VS Code before design starts.
 
+## Jira
+- Site cloudId `21647882-f209-44e2-96aa-f5b9a20c2d31`, project `SCRUM`. Epic BR-014 = SCRUM-5. BR014-S1 = SCRUM-6, S2 = SCRUM-7, S3 = SCRUM-8.
+- Statuses, in order: To Do → In Progress → In Review → In QA → QA Accepted → Ready for Release → Done.
+- Move a story with `transitionJiraIssue`. Pick the transition by its target status (`listJiraIssueTransitions`). Skip the move if the story is already there or further along.
+- After step 3, move each picked story to **In Progress**. If the epic is still **To Do**, move it to **In Progress** too.
+- Stories you didn't pick stay in **To Do**.
+
 ## Output
 Each story has its own branch, worktree, org and feature folder, ready for `architecture-brief`.
 

@@ -22,6 +22,13 @@ Stage 02 — Architecture (steps 4-11). No code is written in this stage.
 10. **Generate design + build plan** — Write `architecture.md`: components, tests, deploy order.
 11. **Architect approval** — HUMAN GATE. Stop and wait. The architect approves or returns the design.
 
+## Jira
+- Site cloudId `21647882-f209-44e2-96aa-f5b9a20c2d31`, project `SCRUM`. Epic BR-014 = SCRUM-5. BR014-S1 = SCRUM-6, S2 = SCRUM-7, S3 = SCRUM-8.
+- Statuses, in order: To Do → In Progress → In Review → In QA → QA Accepted → Ready for Release → Done.
+- Move a story with `transitionJiraIssue`. Pick the transition by its target status (`listJiraIssueTransitions`). Skip the move if the story is already there or further along.
+- If the story is still **To Do**, move it to **In Progress** at step 4.
+- At step 11, add a comment: brief ready for the architect, the recommended option, and the path to `architecture.md`. The status stays **In Progress**.
+
 ## Output
 `architecture.md` in the story's feature folder, approved by the architect.
 
