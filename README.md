@@ -14,6 +14,7 @@ Custom skills for the Salesforce AI development playbook.
 - [pr-package](skills/pr-package/SKILL.md)
 - [release-train](skills/release-train/SKILL.md)
 - [prod-change](skills/prod-change/SKILL.md)
+- [pipeline-reset](skills/pipeline-reset/SKILL.md)
 
 These workflows use installed Salesforce skills and MCP integrations as dependencies. Only custom playbook skills are included here.
 
