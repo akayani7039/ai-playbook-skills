@@ -1,17 +1,20 @@
 ---
 name: pipeline-reset
-description: Reset the BR-014 pipeline demo to a clean start so it can be run again - back up story work, revert story merges out of develop with a PR, remove story components from the dev, QA and UAT orgs, remove story worktrees and branches, and move the Jira stories back to To Do. Keeps all GitHub setup (rulesets, workflows, environments, CI fixes). Use when the user says "reset the pipeline", "revert back to main", "start the demo again" or "clean up the stories". Run it again after the revert PR is merged to finish.
+description: Reset the BR-014 pipeline demo to a clean start (every story in To Do, only the base project everywhere) from any stage, including after UAT and production - back up story and release work, revert story merges out of develop and the release merge out of main with PRs, remove story components from the dev, QA, UAT and demo production orgs, delete the release branch and freeze/prod tags, remove story worktrees and branches, and move the stories and epic back to To Do. Keeps all GitHub setup (rulesets, workflows, environments, secrets, CI fixes). Use when the user says "reset the pipeline", "revert back to main", "start the demo again" or "clean up the stories". Run it again after each PR it opens is merged, until it reports clean.
 ---
 
 # pipeline-reset
 
-Puts the demo back to "only `main`, every story in To Do" so the pipeline can be tested again from `story-setup`.
+Puts the demo back to "every story in To Do, only the base project in every org and on `main` and `develop`" so the pipeline can be run again from `story-setup`. Works from any stage: build, QA, release train, UAT or production.
 
-Two runs:
-- **Run 1 (reset):** back up, open the revert PR, clean orgs, local branches and Jira.
-- **Run 2 (finish):** after the revert PR is merged, remove the revert branch and sync `develop`.
+The reset changes `develop` and `main` only through PRs the user merges, so it takes more than one run. **Every run starts by taking stock and does only what the current state needs.** Run it again after each merge until step 1 reports clean.
 
-Detect which run this is in step 1.
+| State found in step 1 | This run does |
+|---|---|
+| Story work anywhere, no revert PRs yet | Steps 2–8: back up, open revert PRs, clean orgs, release refs, local work and Jira |
+| A revert PR is open | Nothing new. Tell the user which PR to merge |
+| Revert PRs merged, but `main` isn't inside `develop` | Step 9: open the sync PR from `main` into `develop` |
+| Everything merged and in sync | Step 10: finish and report clean |
 
 ## Setup
 
@@ -20,89 +23,126 @@ Detect which run this is in step 1.
 | App repo | `~/Desktop/Claude Projects/AI Playbook/ai-playbook-app` (GitHub `akayani7039/ai-playbook-app`) |
 | Worktree root | `~/Desktop/Claude Projects/AI Playbook/ai-playbook-worktrees/` |
 | Story branches | `feature/BR014-S<n>` |
-| Orgs to clean | `playbook-dev`, `playbook-qa`, `playbook-uat` |
-| Jira | Site `asadkayani10-1791505782400.atlassian.net`, project `SCRUM`, epic SCRUM-5 and its child stories |
+| Release refs | Branch `release/<yyyy.mm>`, tags `freeze-<yyyy.mm>` and `prod-<yyyy.mm>` |
+| Orgs to clean | `playbook-dev`, `playbook-qa`, `playbook-uat`, `playbook-prod` (demo production: a scratch org from Dev Hub `devhub2`) |
+| Jira | Site `asadkayani10-1791505782400.atlassian.net`, project `SCRUM`, epic SCRUM-5 and its child stories, fix version `<yyyy.mm>` |
 
 ## Never touch
-- `main` and `develop` as branches. Never delete them, force-push them or reset them on GitHub. Change `develop` only through a PR.
-- GitHub rulesets, workflows (`.github/`), environments, secrets and variables.
-- Commits on `develop` that are not story merges (CI fixes such as `fix/ci-*`). The revert must remove story changes only.
-- `playbook-prod`. If any story reached `main` or production, **stop** and tell the user. Production needs its own reviewed rollback (`prod-change`).
-- The `ai-playbook-skills` repo.
+- `main` and `develop` as branches. Never delete them, force-push them or reset them on GitHub. Change them only through PRs the user merges.
+- GitHub rulesets, workflows (`.github/`), environments, secrets, variables and repo settings.
+- Commits that are not story work: CI fixes (`fix/ci-*`), pipeline syncs (`sync/*`, `fix/ci-sync-main`). Reverts must remove story changes only.
+- The base project in any org: the components that exist on `main` before the release merge.
+- Sample data (`scripts/data`) in any org. Story fields are deleted with their data; base Lead records stay.
+- A **real** production org. `playbook-prod` must be a scratch org (`sf org display -o playbook-prod --json` shows an expiration date). If it isn't, **stop**: real production needs its own reviewed rollback through `prod-change`.
+- The `ai-playbook-skills` repo and the Dev Hubs (`devhub`, `devhub2`).
 
 ## Tools
 - `git`, `gh`, Salesforce CLI with `sfdx-git-delta` (`sf sgd source delta`).
-- Jira MCP: `searchJiraIssuesUsingJql`, `listJiraIssueTransitions`, `transitionJiraIssue`, `listJiraIssueComments`.
+- Jira MCP: `searchJiraIssuesUsingJql`, `listJiraIssueTransitions`, `transitionJiraIssue`, `listJiraIssueComments`, `getJiraProjectVersions`, `manageJiraProjectVersion`.
 - `AskUserQuestion` for every decision.
+
+## Permission blocks
+Claude Code may block deleting branches or tags on GitHub and deploying to an org named `playbook-prod`, even after the user agrees. When that happens, don't work around it. Show the exact command and ask the user to run it in the prompt with the `!` prefix, then check the result.
 
 ## Steps
 
 ### 1. Take stock (read only)
-Run `git fetch --prune origin` in the app repo, then gather:
-- Local and remote branches, worktrees (`git worktree list`) and tags.
-- Story PRs: `gh pr list --state all --json number,title,headRefName,baseRefName,state,mergeCommit`. Find merged `feature/BR014-*` PRs into `develop`, any `release/*` branches, and anything merged into `main`.
-- Revert PRs into `develop` from any `revert/*` branch. If one is **merged** and its branch or worktree still exists, this is run 2. Go to step 8. If one is still **open**, don't open another; tell the user to merge it first.
-- Components from each story in each org. For each story merge commit `M`, the story's changes are `M^1..M^2`.
-- Jira: the epic's child stories, their status, and their comments.
+Run `git fetch --prune --tags origin` in the app repo, then gather:
+- Local and remote branches, worktrees (`git worktree list`) and tags, including `release/*`, `freeze-*`, `prod-*` and `backup/*`.
+- PRs: `gh pr list --state all --limit 100 --json number,title,headRefName,baseRefName,state,mergeCommit,mergedAt`.
+  - **Story merges into `develop`:** merged `feature/BR014-*` PRs.
+  - **Release merges into `main`:** merged PRs from `release/*` into `main`. Open ones too.
+  - **Revert PRs:** from `revert/*` branches into `develop` or `main`. Open ones mean "wait"; merged ones mean a later run.
+- **Pipeline state:** is `origin/main` an ancestor of `origin/develop` (`git merge-base --is-ancestor origin/main origin/develop`)? Do `main` and `develop` have the same `.github` and `scripts/ci` files?
+- **Org state:** for each org, which story components exist. For each story merge `M` into `develop` the story's changes are `M^1..M^2`; for the release merge `R` into `main` the production changes are `R^1..R^2`. Query the org for the added components (classes, LWC bundles, custom fields).
+- **Jira:** the epic, its child stories, their status and comments, and whether fix version `<yyyy.mm>` is marked released.
 
-Show a short table: what exists, what will be removed or reverted, and what stays. **Stop if anything reached `main` or `playbook-prod`.**
+Pick the row from the state table above. Show a short table: what exists, what this run will remove or revert, and what stays.
 
 ### 2. Confirm
 Ask once, with these options:
 - Reset everything shown (Recommended)
-- Choose what to reset (then ask per area: develop, orgs, local, Jira)
+- Choose what to reset (then ask per area: develop, main, release refs, orgs, local, Jira)
 - Cancel
 
+Deleting custom fields removes their data; name them in the question. Say which steps need the user to run a command (see Permission blocks).
+
 ### 3. Back up
-For every story branch or story merge, tag the tip locally: `backup/<branch-name>-<YYYY-MM-DD>` (for example `backup/BR014-S1-2026-10-11`). Don't push tags.
+Tag every tip you're about to remove, locally: `backup/<name>-<YYYY-MM-DD>`, for example `backup/BR014-S1-2026-10-13`, `backup/release-2026.10-2026-10-13`, `backup/prod-2026.10-2026-10-13`. Don't push backup tags.
 
 ### 4. Revert story merges out of develop
-Skip this if no story is merged into `develop`.
-1. Create worktree `ai-playbook-worktrees/revert-pipeline-reset` on a new branch `revert/pipeline-reset-<YYYY-MM-DD>` from `origin/develop`.
-2. Revert each story merge, newest first: `git revert --no-edit -m 1 <merge>`. Squash them into one commit: `Revert BR-014 stories to reset the pipeline demo`.
-3. Check the diff against `origin/develop`. It may only remove or restore story files. If it touches `.github/`, `scripts/ci/`, `tests/ci/` or any CI fix, stop and show the user.
+Skip if no story merge is in `develop`.
+1. Create worktree `ai-playbook-worktrees/revert-develop` on a new branch `revert/develop-reset-<YYYY-MM-DD>` from `origin/develop`.
+2. Revert each story merge, newest first: `git revert --no-edit -m 1 <merge>`. Squash into one commit: `Revert BR-014 stories to reset the pipeline demo`.
+3. Check the diff against `origin/develop`. It may only remove or restore story files (including `features/BR014-S*`). If it touches `.github/`, `scripts/ci/`, `tests/ci/` or any CI fix, stop and show the user.
 4. Push and open a PR into `develop`. In the body, list the reverted PRs, the backup tags, and this note:
    > PR validation is expected to fail with "Deletion detected". The pipeline blocks destructive changes by design. Org cleanup is done separately by `pipeline-reset`. Merge with an admin bypass of the `develop` ruleset.
 5. Don't merge it. The user merges it.
 
-### 5. Clean the orgs
-For each org in `playbook-dev`, `playbook-qa` and `playbook-uat`, only if it has story components:
-1. Build the story delta for each merge, or for each unmerged story branch against `origin/develop`:
-   `sf sgd source delta --from <M^1> --to <M^2> --output-dir <scratch>/delta-<story>`
-   - **Added** components (in `package/package.xml` and new in the diff) → put them in `destructiveChanges.xml`.
-   - **Changed** components that existed before (a layout, permission set or flexipage) → redeploy them from the pre-story commit `M^1`. Don't delete them.
-2. **Custom fields and objects:** deleting them removes their data and leaves them in the org's recycle bin. Ask before deleting them, and say which ones.
-3. Deploy with an empty `package.xml` and `--post-destructive-changes`. Run tests only if the org requires them.
-4. Check with a query, for example `SELECT Name FROM ApexClass WHERE Name IN (...)`. Report 0 left per org.
+### 5. Revert the release out of main
+Skip if no release PR was merged into `main`. If a release PR into `main` is still **open**, ask whether to close it instead (`gh pr close`), and skip the revert.
+1. Create worktree `ai-playbook-worktrees/revert-main` on a new branch `revert/main-reset-<YYYY-MM-DD>` from `origin/main`.
+2. For each merged release PR, newest first: `git revert --no-edit -m 1 <release merge>`.
+3. Check the diff against `origin/main`. It may only remove or restore story files. `main` must end with the same content as before the first release merge (`git diff <first release merge>^1 HEAD` is empty except CI fixes made on `main` since). Stop on anything else.
+4. Push and open a PR into `main` titled `Revert release <yyyy.mm> to reset the pipeline demo`. Say that `main` must match production, which step 6 also resets.
+5. Don't merge it. The user merges it.
 
-Do this from a scratch folder for the manifests. Never edit or delete files in the app repo for org cleanup.
+### 6. Clean the orgs
+For each org that has story components:
 
-### 6. Remove local story work
-1. For each story worktree and branch (`feature/BR014-S*`, `release/*` from this demo): check `git status --short`. If there are uncommitted changes, show them and ask before removing.
-2. `git worktree remove <path>` and `git branch -D <branch>`. Only after the backup tag exists.
-3. Delete **merged** `feature/BR014-*` branches on GitHub (`git push origin --delete <branch>`). Ask first about unmerged ones.
-4. Remove merged `fix/*` worktrees and local branches only if the user asks. Check with `git merge-base --is-ancestor <branch> origin/develop` first.
+| Org | Story changes come from |
+|---|---|
+| `playbook-dev`, `playbook-qa`, `playbook-uat` | Each story merge into `develop` (`M^1..M^2`), or each unmerged story branch against `origin/develop` |
+| `playbook-prod` | Each release merge into `main` (`R^1..R^2`). If the release reached production but wasn't merged into `main`, use `origin/main..prod-<yyyy.mm>` |
 
-### 7. Reset Jira
-1. Move each story under the epic to **To Do**. Find the transition by its target status with `listJiraIssueTransitions`.
-2. Don't change the epic, the acceptance criteria, the fix version or the sprint.
-3. The Jira tools can't delete comments. List each pipeline comment (issue key, date, first line) so the user can delete them by hand.
+1. Build the delta in a scratch folder: `sf sgd source delta --from <before> --to <after> --output-dir <scratch>/delta-<org>`.
+   - **Added** components → `destructiveChanges.xml`.
+   - **Changed** components that existed before (layout, permission set, flexipage, the Lead object's history setting) → redeploy them from the "before" commit.
+   - **Changed** components that don't exist in the "before" commit (for example a profile file holding only story field permissions) → skip. Deleting the fields removes their permissions.
+2. **Custom fields and objects:** deleting them removes their data and field history, and leaves them in the org's recycle bin. Confirmed in step 2.
+3. Deploy the restored "before" versions and the deletions **in one deploy**: `sf project deploy start --manifest <restored package.xml> --post-destructive-changes <destructiveChanges.xml> -o <org>`. Restoring the layout, page and permission set first removes their references, so the fields, classes and LWC can be deleted. Run tests only if the org requires them.
+4. For `playbook-prod`, check first that it's the demo scratch org (see Never touch). The deploy may need the user to run it (see Permission blocks).
+5. Check with queries per org: no story classes (`SELECT Name FROM ApexClass WHERE Name IN (...)`), no story LWC, no story fields (Tooling `CustomField` on Lead), and the base classes still there. Report 0 story components left per org.
 
-Then report (see Output) and stop. Tell the user to merge the revert PR and run `pipeline-reset` again.
+Never edit or delete files in the app repo for org cleanup.
 
-### 8. Finish (run 2, after the revert PR is merged)
-1. Check that `origin/develop` has no story files left: no `features/BR014-S*` folders and none of the story components from step 5.
-2. `git worktree remove` the revert worktree. Delete the merged `revert/*` branch locally and on GitHub.
-3. Update local `develop`: `git fetch origin && git branch -f develop origin/develop` (only if `develop` is not checked out anywhere; otherwise `git pull --ff-only` in that checkout).
-4. Leave `main` checked out in the app repo.
-5. Re-check the orgs: the QA deployment that runs on the merge does not delete metadata, so confirm the story components are still gone.
+### 7. Remove release refs and local story work
+1. **Release refs on GitHub:** after the backup tags exist, delete `release/<yyyy.mm>`, `freeze-<yyyy.mm>` and `prod-<yyyy.mm>`: `git push origin --delete refs/heads/release/<yyyy.mm> refs/tags/freeze-<yyyy.mm> refs/tags/prod-<yyyy.mm>`. Workflow 03 refuses to freeze a month whose branch or tag already exists. Delete the same tags locally.
+2. **Story worktrees and branches** (`feature/BR014-S*`): check `git status --short` in each. If there are uncommitted changes, show them and ask before removing. Then `git worktree remove <path>` and `git branch -D <branch>`.
+3. Delete **merged** `feature/BR014-*` branches on GitHub. Ask first about unmerged ones.
+4. Remove merged `fix/*` and `sync/*` worktrees and branches only if the user asks. Check with `git merge-base --is-ancestor <branch> origin/develop` first.
+
+### 8. Reset Jira
+1. Move each story under the epic to **To Do**, from whatever status it's in (including **Done**). Find the transition by its target status with `listJiraIssueTransitions`.
+2. Move the epic to **To Do** if it has moved.
+3. If fix version `<yyyy.mm>` is marked released, ask whether to mark it unreleased (`manageJiraProjectVersion`).
+4. Don't change the acceptance criteria, the fix version on the stories or the sprint.
+5. The Jira tools can't delete comments. List each pipeline comment (issue key, date, first line) so the user can delete them by hand.
+
+Then report (see Output) and stop. Tell the user which revert PRs to merge, and to run `pipeline-reset` again.
+
+### 9. Sync main into develop (later run)
+When the revert PRs are merged but `origin/main` isn't an ancestor of `origin/develop`:
+1. Push a branch `sync/main-to-develop-<YYYY-MM-DD>` from `origin/main`. Don't open the PR from `main` itself: the ruleset needs an approval from someone other than the last pusher.
+2. Open a PR into `develop`. Both branches already have the same files, so it only joins the history. Without it, the next `release-train` freeze fails its "main is inside develop" check.
+3. Don't merge it. Tell the user to merge it and run `pipeline-reset` again.
+
+### 10. Finish (last run)
+When every revert and sync PR is merged:
+1. Check `origin/develop` and `origin/main` have no story files: no `features/BR014-S*` folders and none of the story components.
+2. Check `origin/main` is an ancestor of `origin/develop`, and their `.github` and `scripts/ci` files match.
+3. Remove the `revert-*` worktrees. Delete the merged `revert/*` and `sync/*` branches locally and on GitHub.
+4. Update local `develop`: `git fetch origin && git branch -f develop origin/develop` (only if `develop` isn't checked out anywhere; otherwise `git pull --ff-only` in that checkout). Leave `main` checked out in the app repo.
+5. Re-check all four orgs. The QA deployment that runs on the `develop` merge doesn't delete metadata, so confirm the story components are still gone everywhere.
+6. Check Jira: every story and the epic in **To Do**.
 
 ## Rules
-- Back up before deleting anything. Never delete a branch without a backup tag.
+- Back up before deleting anything. Never delete a branch or tag without a backup tag.
 - Destructive steps happen only after the user confirms in step 2.
 - Never use `--force` on a push, `reset --hard` on a shared branch, or a ruleset bypass yourself.
-- If something doesn't match what you expected (an unknown branch, a non-story commit in the revert diff, a component you can't place), stop and ask.
-- Report facts. If a step failed or was skipped, say so.
+- Never deploy to `playbook-prod` unless step 1 confirmed it's the demo scratch org.
+- If something doesn't match what you expected (an unknown branch, a non-story commit in a revert diff, a component you can't place), stop and ask.
+- Report facts. If a step failed, was skipped or was handed to the user, say so.
 
 ## Output
 
@@ -110,8 +150,10 @@ Then report (see Output) and stop. Tell the user to merge the revert PR and run 
 |---|---|
 | Backups | Tags created |
 | develop | Revert PR link and expected CI result, or "nothing merged" |
-| Orgs | Components removed and restored per org, with the 0-left check |
+| main | Release revert PR link, closed release PR, or "no release in main" |
+| Orgs | Per org (dev, QA, UAT, prod): components removed and restored, with the 0-left check |
+| Release refs | `release/*`, `freeze-*`, `prod-*` deleted, or the command handed to the user |
 | Local | Worktrees and branches removed; remote branches deleted |
-| Jira | Stories moved to To Do; comments to delete by hand |
-| Kept | GitHub setup, CI fixes, `main`, `develop`, prod |
-| Next step | Merge the revert PR with admin bypass, then run `pipeline-reset` again. After run 2: `story-setup`. |
+| Jira | Stories and epic moved to To Do; version unreleased if asked; comments to delete by hand |
+| Kept | GitHub setup, CI fixes, base project, sample data, Dev Hubs |
+| Next step | Which PRs to merge, then run `pipeline-reset` again. When it reports clean: `story-setup`. |
