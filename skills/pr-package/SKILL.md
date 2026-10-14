@@ -9,7 +9,7 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 
 ## Tools
 - Git, GitHub CLI (`gh`), Jira MCP, Slack MCP
-- Slack channel: `#br-014-release` (C0C97HAD3S4). Post every Slack message there.
+- Slack channel: `#br-014-release` (C0C966P3VB8). Post every Slack message there.
 - GitHub Actions, sfdx-git-delta, Code Analyzer
 - Official skills: `dx-code-analyzer-run`, `dx-code-analyzer-configure`, `experience-lwc-security-validate`
 
@@ -21,11 +21,15 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 - Jira site cloudId: `21647882-f209-44e2-96aa-f5b9a20c2d31`. Project `SCRUM`.
 - Jira statuses, in order: To Do → In Progress → In Review → In QA → QA Accepted → Ready for Release → Done.
 - Story keys: BR014-S1 = SCRUM-6, BR014-S2 = SCRUM-7, BR014-S3 = SCRUM-8. Check the feature `README.md` if unsure.
+- Jira accounts. Match on the account ID, never the display name (names can be changed or swapped):
+  - **QA Lead:** `712020:661c6de2-97d4-47da-a291-47fda62f66ac`
+  - **Developer** (the account the agent acts as): `5d7d1e02656e2a0dbab31ddc`
 
 ## Pick the part
 - No open PR for `feature/BR014-S<n>` → Part A.
 - PR open and CI green, tech lead approved, story **QA Accepted** in Jira → Part B.
 - PR merged, story deployed to QA, Jira not yet **In QA** → QA handoff (below).
+- PR merged, story **QA Accepted** → Part B, "If the PR is already merged".
 - Anything else → report where the story is and stop.
 
 ## Part A — Open the PR (steps 20-27)
@@ -54,6 +58,12 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 - Download the evidence: `gh run download <run-id>`. Read `evidence/pr-validation.json` and `evidence/code-analyzer.json`.
 - **Code failure** (compile error, test failure, Sev 1 in a story file): report it. Fix only if it's inside the build plan, then push and re-check.
 - **CI setup failure** (auth, missing folder, tracking, empty QA org): don't touch the story branch. Fix CI on its own branch from `develop` and its own PR. Merge `develop` into the story branch after it lands, so CI re-runs.
+- **CI fixes reach main too.** The release workflows (03–06) run from `main`, so a CI fix only in `develop` breaks the release later. The fix isn't done until all three are merged:
+  1. The fix PR into `develop`.
+  2. The same commit cherry-picked onto `fix/ci-<name>-main` from `origin/main`, with its own PR into `main`.
+  3. A sync PR from `sync/main-to-develop-<YYYY-MM-DD>` (cut from `origin/main`) into `develop`, so `main` stays inside `develop`.
+
+  Check with `git merge-base --is-ancestor origin/main origin/develop` and `git diff --quiet origin/main origin/develop -- .github scripts/ci tests/ci`. Never push a CI fix straight to `main` alone.
 - An auth secret is fixed by the user. Show the command; never read or print the value:
   `sf org auth show-sfdx-auth-url -o <alias> --json | jq -r '.result.sfdxAuthUrl' | gh secret set SFDX_AUTH_URL --env <env> -R akayani7039/ai-playbook-app`
 
@@ -71,7 +81,10 @@ The QA lead then moves it to **QA Accepted** (gate 3), or logs a Bug and moves i
 ### Check the gates. All must pass, or stop and say which one failed.
 1. **Gate 2, tech lead** — Latest review from `techlead10` is `APPROVED`, and it's after the `sf-code-review` review (step 28).
 2. **CI** — `validate` is green on the PR's current head.
-3. **Gate 3, QA lead** — The Jira story is in **QA Accepted**. Read the changelog (`listJiraIssueChangelogs`): the move to QA Accepted must be made by the QA lead, not the developer or the agent. If it isn't, stop.
+3. **Gate 3, QA lead** — The Jira story is in **QA Accepted**. Read the changelog with `getJiraIssue` and `expand: "changelog"`. Find the **latest** history entry whose status item has `toString` = `QA Accepted`. Its `author.accountId` must be the QA Lead's ID (see Setup).
+   - The developer's ID, any other ID, or no such entry → stop. Say who made the move and when.
+   - If the story moved to QA Accepted, out again, and back, only the latest move counts.
+   - Report the account ID and display name you found. Decide on the ID only.
 
 ### Steps
 33. **Merge to develop** — `gh pr merge <n> --merge`. Keep the branch; the worktree uses it. The push starts the `QA deployment` workflow. Wait for it and report the result. If the story wasn't in QA yet, run the QA handoff.
@@ -86,6 +99,8 @@ Don't merge again. Report who merged it and when, and whether gates 2 and 3 were
 - Never print, log or commit auth URLs or tokens.
 - Don't post to Slack or Jira for steps you didn't run.
 
+## QA order (known limitation)
+The `QA deployment` workflow deploys `develop`, so a story reaches QA only after its PR is merged (with gate 2 and CI in place). The QA lead then accepts it after the merge. When that happens, say so in the Jira comment and on Slack: "merged before QA acceptance; QA ran on develop at <commit>". Move to **Ready for Release** only after gate 3 passes.
+
 ## TODO
-- [ ] QA order: the `QA deployment` workflow deploys `develop`, so a story reaches QA only after step 33. Decide: merge first then QA, or add a pre-merge QA deploy of the PR branch.
-- [ ] QA lead Jira account, so gate 3 can be checked by name.
+- [ ] Pre-merge QA deploy of the PR branch, so QA accepts before the merge.

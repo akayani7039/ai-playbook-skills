@@ -10,7 +10,7 @@ Stage 07 — Production change (steps 42-50).
 ## Tools
 - Salesforce CLI (`sf project deploy validate`, `sf project deploy quick`)
 - Git MCP, Slack MCP, Jira MCP
-- Slack channel: `#br-014-release` (C0C97HAD3S4). Post every Slack message there.
+- Slack channel: `#br-014-release` (C0C966P3VB8). Post every Slack message there.
 - `ui-test-playwright` (prod-smoke mode)
 - Official skill: `platform-metadata-deploy`
 
