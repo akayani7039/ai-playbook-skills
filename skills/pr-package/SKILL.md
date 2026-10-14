@@ -48,7 +48,7 @@ Stage 04 — Commit, CI & review (steps 20-27) and Stage 05 — QA handoff (step
 20. **Create commit** — Message: `BR014-S<n>: <what changed>`. Skip if the tree is clean and the story's commits already exist.
 21. **Open pull request** — Push the branch. `gh pr create --base develop --reviewer techlead10`. Title: `BR014-S<n>: <story title>`.
 22. **Generate PR summary** — Fill `.github/pull_request_template.md`: story and Jira link, what changed and why, design match, test evidence table, one row per acceptance criterion with its test method name, security, deploy order. Use real numbers from the checks above.
-23. **Link ticket** — Add the PR as a web link on the Jira story (`createJiraIssueRemoteIssueLink`). Check existing links first; don't add it twice. Move the story to **In Review**.
+23. **Link ticket** — The Jira MCP can't add web links. Add a Jira comment with the PR URL and title instead. Check the comments first (`getJiraIssue` with `fields: ["comment"]`); don't add it twice. Move the story to **In Review**.
 24. **Run CI validation** — Wait for the `PR validation` run on the PR (`gh run watch`).
 25. **Run Code Analyzer** — CI runs it. Zero Sev 1 is required.
 26. **Check deployment delta** — CI builds `build/package.xml` with sfdx-git-delta. Check it lists only the story's components.

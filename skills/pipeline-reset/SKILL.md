@@ -20,8 +20,8 @@ The reset changes `develop` and `main` only through PRs the user merges, so it t
 
 | Item | Value |
 |---|---|
-| App repo | `~/Desktop/Claude Projects/AI Playbook/ai-playbook-app` (GitHub `akayani7039/ai-playbook-app`) |
-| Worktree root | `~/Desktop/Claude Projects/AI Playbook/ai-playbook-worktrees/` |
+| App repo | `~/Desktop/Claude Projects/AIPlaybookDemo/app/ai-playbook-app` (GitHub `akayani7039/ai-playbook-app`) |
+| Worktree root | `~/Desktop/Claude Projects/AIPlaybookDemo/app/ai-playbook-worktrees/` |
 | Story branches | `feature/BR014-S<n>` |
 | Release refs | Branch `release/<yyyy.mm>`, tags `freeze-<yyyy.mm>` and `prod-<yyyy.mm>` |
 | Orgs to clean | `playbook-dev`, `playbook-qa`, `playbook-uat`, `playbook-prod` (demo production: a scratch org from Dev Hub `devhub2`) |
@@ -38,7 +38,8 @@ The reset changes `develop` and `main` only through PRs the user merges, so it t
 
 ## Tools
 - `git`, `gh`, Salesforce CLI with `sfdx-git-delta` (`sf sgd source delta`).
-- Jira MCP: `searchJiraIssuesUsingJql`, `listJiraIssueTransitions`, `transitionJiraIssue`, `listJiraIssueComments`, `getJiraProjectVersions`, `manageJiraProjectVersion`.
+- Jira MCP: `searchJiraIssuesUsingJql`, `getJiraIssue` (comments: `fields: ["comment"]`), `getTransitionsForJiraIssue`, `transitionJiraIssue`. It has no tools for versions or deleting comments; those are done by hand in the Jira UI.
+- Plugin hook: the salesforce-development plugin denies raw `sf data query` and `sf project retrieve` until `platform-soql-query` / `platform-metadata-retrieve` has been dispatched in the same turn. Dispatch it first, then run the command.
 - `AskUserQuestion` for every decision.
 
 ## Permission blocks
@@ -55,7 +56,7 @@ Run `git fetch --prune --tags origin` in the app repo, then gather:
   - **Revert PRs:** from `revert/*` branches into `develop` or `main`. Open ones mean "wait"; merged ones mean a later run.
 - **Pipeline state:** is `origin/main` an ancestor of `origin/develop` (`git merge-base --is-ancestor origin/main origin/develop`)? Do `main` and `develop` have the same `.github` and `scripts/ci` files?
 - **Org state:** for each org, which story components exist. For each story merge `M` into `develop` the story's changes are `M^1..M^2`; for the release merge `R` into `main` the production changes are `R^1..R^2`. Query the org for the added components (classes, LWC bundles, custom fields).
-- **Jira:** the epic, its child stories, their status and comments, and whether fix version `<yyyy.mm>` is marked released.
+- **Jira:** the epic, its child stories, their status and comments, and whether fix version `<yyyy.mm>` (id `10000`) is marked released (`getJiraIssue` returns `fixVersions[].released`). Also list stray issues in the project that aren't under the epic (for example SCRUM-4) for the user to delete by hand.
 
 Pick the row from the state table above. Show a short table: what exists, what this run will remove or revert, and what stays.
 
@@ -113,9 +114,9 @@ Never edit or delete files in the app repo for org cleanup.
 4. Remove merged `fix/*` and `sync/*` worktrees and branches only if the user asks. Check with `git merge-base --is-ancestor <branch> origin/develop` first.
 
 ### 8. Reset Jira
-1. Move each story under the epic to **To Do**, from whatever status it's in (including **Done**). Find the transition by its target status with `listJiraIssueTransitions`.
+1. Move each story under the epic to **To Do**, from whatever status it's in (including **Done**). Find the transition by its target status with `getTransitionsForJiraIssue` (To Do = `11`).
 2. Move the epic to **To Do** if it has moved.
-3. If fix version `<yyyy.mm>` is marked released, ask whether to mark it unreleased (`manageJiraProjectVersion`).
+3. If fix version `<yyyy.mm>` is marked released, tell the user to mark it unreleased in the Jira UI (Project settings → Releases). The MCP can't.
 4. Don't change the acceptance criteria, the fix version on the stories or the sprint.
 5. The Jira tools can't delete comments. List each pipeline comment (issue key, date, first line) so the user can delete them by hand.
 

@@ -27,6 +27,9 @@ Run `git fetch --prune --tags origin`, then check all of these. Stop on any fail
 4. **Month is free:** no `release/<yyyy.mm>` branch and no `freeze-<yyyy.mm>` tag on origin (`git ls-remote --heads --tags origin`). If one exists, the last run wasn't reset. Point to `pipeline-reset`.
 5. **No open PRs into `develop` or `main`** that belong in this release (`gh pr list --base develop`, `--base main`).
 
+## Plugin hook
+The salesforce-development plugin denies raw `sf project retrieve`, `sf data query`, `sf apex run test` and `sf project generate manifest` until its owning skill (`platform-metadata-retrieve`, `platform-soql-query`, `platform-apex-test-run`, `platform-manifest-generate`) has been dispatched in the same turn. Dispatch that skill first, then run the command shown here. Deploy commands only get a warning.
+
 ## Steps
 35. **Blocker summary** — Summarize open defects and blockers for go/no-go. Every story in the release must be **Ready for Release** in Jira. List any that aren't as blockers. Include the pipeline check results.
 36. **Cut + freeze branch** — Run workflow 03 from `main`:
@@ -41,7 +44,7 @@ Run `git fetch --prune --tags origin`, then check all of these. Stop on any fail
 ## Jira
 - Site cloudId `21647882-f209-44e2-96aa-f5b9a20c2d31`, project `SCRUM`. Epic BR-014 = SCRUM-5. BR014-S1 = SCRUM-6, S2 = SCRUM-7, S3 = SCRUM-8.
 - Statuses, in order: To Do → In Progress → In Review → In QA → QA Accepted → Ready for Release → Done.
-- Move a story with `transitionJiraIssue`. Pick the transition by its target status (`listJiraIssueTransitions`). Skip the move if the story is already there or further along.
+- Move a story with `transitionJiraIssue`. Pick the transition by its target status (`getTransitionsForJiraIssue`). IDs: To Do `11`, In Progress `21`, In Review `2`, In QA `3`, QA Accepted `4`, Ready for Release `5`, Done `31`. Skip the move if the story is already there or further along.
 - The release takes only stories in **Ready for Release**. Don't move stories forward to make them fit.
 - Step 39: build the release notes from the **Ready for Release** stories and their linked PRs.
 - Step 41: after the business owner signs off, add a sign-off comment (who, when, release branch) to each story. They stay **Ready for Release** until production.
